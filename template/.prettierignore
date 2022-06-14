@@ -1,0 +1,10 @@
+# Ignore artifacts:
+build
+coverage
+node_modules
+android
+data
+ios
+
+# Ignore all markup files files:
+*.md

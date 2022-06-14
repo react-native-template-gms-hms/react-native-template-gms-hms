@@ -1,0 +1,43 @@
+{
+  "name": "react-native-template-gms-hms",
+  "version": "0.1.0",
+  "description": "React Native Template With HMS/GMS detection",
+  "author": "Edwin Nel <nel.edwin@gmail.com>",
+  "license": "MIT",
+  "keywords": [
+    "template",
+    "react",
+    "react-native",
+    "ios",
+    "android",
+    "huawai",
+    "bottom-sheet",
+    "bottomsheet",
+    "reanimated",
+    "sheet",
+    "google mobile services",
+    "huawei mobile services",
+    "database",
+    "sqlite",
+    "watermelon",
+    "offline",
+    "reactive",
+    "persistence",
+    "localstorage",
+    "google maps",
+    "ios maps",
+    "huawai maps",
+    "eslint",
+    "jest",
+    "prettier",
+    "typescript"
+  ],
+  "homepage": "https://github.com/react-native-template-gms-hms-plus/react-native-template-gms-hms",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/react-native-template-gms-hms-plus/react-native-template-gms-hms.git"
+  },
+  "bugs": {
+    "url": "https://github.com/react-native-template-gms-hms-plus/react-native-template-gms-hms/issues"
+  }
+}

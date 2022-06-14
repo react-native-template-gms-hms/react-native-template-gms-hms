@@ -1,0 +1,82 @@
+diff --git a/node_modules/@nozbe/watermelondb/adapters/sqlite/encodeQuery/index.js b/node_modules/@nozbe/watermelondb/adapters/sqlite/encodeQuery/index.js
+index c784111..8f27841 100644
+--- a/node_modules/@nozbe/watermelondb/adapters/sqlite/encodeQuery/index.js
++++ b/node_modules/@nozbe/watermelondb/adapters/sqlite/encodeQuery/index.js
+@@ -125,7 +125,7 @@ var encodeConditions = function (table, description, associations) {
+
+ var encodeMethod = function (table, countMode, needsDistinct) {
+   if (countMode) {
+-    return needsDistinct ? "select count(distinct \"".concat(table, "\".\"id\") as \"count\" from \"").concat(table, "\"") : "select count(*) as \"count\" from \"".concat(table, "\"");
++    return needsDistinct ? "select count(distinct \"".concat(table, "\".\"id\") as \"count\" from \"").concat(table, "\"") : "select count(1) as \"count\" from \"".concat(table, "\"");
+   }
+
+   return needsDistinct ? "select distinct \"".concat(table, "\".* from \"").concat(table, "\"") : "select \"".concat(table, "\".* from \"").concat(table, "\"");
+diff --git a/node_modules/@nozbe/watermelondb/adapters/sqlite/index.js b/node_modules/@nozbe/watermelondb/adapters/sqlite/index.js
+index 5e293cf..b779d75 100644
+--- a/node_modules/@nozbe/watermelondb/adapters/sqlite/index.js
++++ b/node_modules/@nozbe/watermelondb/adapters/sqlite/index.js
+@@ -182,7 +182,9 @@ var SQLiteAdapter = /*#__PURE__*/function () {
+
+     (0, _common2.validateTable)(table, this.schema);
+
++    _common.logger.time();
+     this._dispatcher.call('find', [table, id], function (result) {
++      _common.logger.timeEnd('find', table, id);
+       return callback((0, _Result.mapValue)(function (rawRecord) {
+         return (0, _common2.sanitizeFindResult)(rawRecord, _this4.schema.tables[table]);
+       }, result));
+@@ -198,7 +200,9 @@ var SQLiteAdapter = /*#__PURE__*/function () {
+     } = _query;
+     var [sql, args] = (0, _encodeQuery.default)(_query);
+
++    _common.logger.time();
+     this._dispatcher.call('query', [table, sql, args], function (result) {
++      _common.logger.timeEnd(sql);
+       return callback((0, _Result.mapValue)(function (rawRecords) {
+         return (0, _common2.sanitizeQueryResult)(rawRecords, _this5.schema.tables[table]);
+       }, result));
+diff --git a/node_modules/@nozbe/watermelondb/utils/common/logger/index.d.ts b/node_modules/@nozbe/watermelondb/utils/common/logger/index.d.ts
+index feae7af..0a3021f 100644
+--- a/node_modules/@nozbe/watermelondb/utils/common/logger/index.d.ts
++++ b/node_modules/@nozbe/watermelondb/utils/common/logger/index.d.ts
+@@ -6,6 +6,10 @@ declare module '@nozbe/watermelondb/utils/common/logger' {
+
+     error(...messages: any[]): void
+
++    time(): void
++
++    timeEnd(...messages: any[]): void
++
+     silence(): void
+   }
+
+diff --git a/node_modules/@nozbe/watermelondb/utils/common/logger/index.js b/node_modules/@nozbe/watermelondb/utils/common/logger/index.js
+index 2cf78fa..011f3d5 100644
+--- a/node_modules/@nozbe/watermelondb/utils/common/logger/index.js
++++ b/node_modules/@nozbe/watermelondb/utils/common/logger/index.js
+@@ -38,6 +38,25 @@ var Logger = /*#__PURE__*/function () {
+     this.silent || (_console3 = console).error.apply(_console3, (0, _toConsumableArray2.default)(formatMessages(messages)));
+   };
+
++  _proto.time = function time() {
++    this.silent || (this.start = Date.now());
++  }
++
++  _proto.timeEnd = function timeEnd(...messages) {
++    if (!this.start) {
++      this.warn('[WatermelonDB] timeEnd() called without a previous time() call');
++      return;
++    }
++
++    if (messages && messages.length) {
++      messages.unshift("[SQLite] [",(Date.now() - this.start).toString().trim(), 'ms ]');
++    } else {
++      messages = ["[SQLite] [",(Date.now() - this.start).toString().trim(), 'ms ]'];
++    }
++    var _console4;
++    this.silent || (this.start &&  (_console4 = console).log.apply(_console4, (0, _toConsumableArray2.default)(formatMessages(messages))));
++  }
++
+   _proto.silence = function silence() {
+     this.silent = true;
+   };
