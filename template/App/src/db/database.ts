@@ -1,5 +1,6 @@
 import { Database } from '@nozbe/watermelondb';
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
+import { Notification } from './models';
 import schema from './schema';
 // import migrations from './migrations';
 
@@ -16,7 +17,7 @@ const adapter = new SQLiteAdapter({
 
 const database = new Database({
   adapter,
-  modelClasses: [],
+  modelClasses: [Notification],
 });
 
 const resetDatabase = async () => {

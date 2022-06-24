@@ -1,26 +1,34 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Button, StatusBar, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { StatusBar, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import MapView from 'react-native-maps';
 import { name as appName } from '../app.json';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
-import { ApplicationProvider, useApplication, darkTheme, lightTheme, restart, getVersion } from '@library';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { ApplicationProvider, useApplication, darkTheme, lightTheme, restart, getVersion, Button } from '@library';
 import { database, localStorage } from '@app/db/database';
-import DatabaseProvider from '@nozbe/watermelondb/DatabaseProvider';
+import DatabaseProvider, { withDatabase } from '@nozbe/watermelondb/DatabaseProvider';
+import withObservables from '@nozbe/with-observables';
+import { Database, Q } from '@nozbe/watermelondb';
+
 import { useNetInfo } from '@react-native-community/netinfo';
-import BottomSheet from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import dayjs from 'dayjs';
 
+import messaging, { remoteMessaging, setForegroundMessageHandler, setBackgroundMessageHandler } from '@library/util/notification';
+import { Notification } from '@app/db/models';
+
+setBackgroundMessageHandler();
+
 const Version = () => {
   const version = getVersion();
-  return <Text style={{ color: 'black' }}>{JSON.stringify(version)}</Text>;
+  return <Text style={{ color: 'black' }}>{JSON.stringify(version, null, 2)}</Text>;
 };
 
 const NetworkStatus = () => {
   const netInfo = useNetInfo();
-  return <Text style={{ color: 'black' }}>{JSON.stringify(netInfo)}</Text>;
+  return <Text style={{ color: 'black' }}>{JSON.stringify(netInfo, null, 2)}</Text>;
 };
 
 const Restart = () => {
@@ -28,7 +36,7 @@ const Restart = () => {
     restart();
   }, []);
 
-  return <Button title="Restart" onPress={restartHandler} />;
+  return <Button label="Restart" onPress={restartHandler} style={{ alignItems: 'center' }} />;
 };
 
 const MobileService = () => {
@@ -54,6 +62,36 @@ const Map = () => (
   />
 );
 
+const NavigateToNotifications = () => {
+  const { navigate } = useNavigation();
+
+  const handler = useCallback(() => {
+    return navigate('Notifications');
+  }, []);
+
+  return <Button label="View Remote Notifications" onPress={handler} style={{ alignItems: 'center' }} />;
+};
+
+const NotificationsList = ({ notifications }: { notifications: Notification[] }) => {
+  return (
+    <>
+      {notifications.map((notification) => (
+        <View key={notification.id}>
+          <Text>{notification.state}</Text>
+          <Text>{notification.createdAt.toISOString()}</Text>
+        </View>
+      ))}
+    </>
+  );
+};
+
+const enhanceNotifications = withObservables([], ({ database }: { database: Database }) => {
+  return {
+    notifications: database.get<Notification>('notifications').query(Q.sortBy('created_at', 'desc')),
+  };
+});
+const NotificationsListEnhanced = withDatabase(enhanceNotifications(NotificationsList));
+
 const Stack = createNativeStackNavigator();
 const RootScreen = ({ starts }: { starts: number }) => {
   // ref
@@ -69,8 +107,8 @@ const RootScreen = ({ starts }: { starts: number }) => {
   return (
     <>
       <Map />
-      <BottomSheet ref={bottomSheetRef} index={0} snapPoints={snapPoints} onChange={handleSheetChanges}>
-        <View style={styles.contentContainer}>
+      <BottomSheet ref={bottomSheetRef} index={2} snapPoints={snapPoints} onChange={handleSheetChanges}>
+        <BottomSheetScrollView contentContainerStyle={styles.contentContainer}>
           <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
             <MobileService />
             <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginLeft: 20 }}>
@@ -78,10 +116,16 @@ const RootScreen = ({ starts }: { starts: number }) => {
               <Text style={{ color: '#900', marginLeft: 20 }}>Restarted : {starts} times</Text>
             </View>
           </View>
+          <View style={styles.separator} />
           <Version />
+          <View style={styles.separator} />
           <Restart />
+          <View style={styles.separator} />
+          <NavigateToNotifications />
+          <View style={styles.separator} />
           <NetworkStatus />
-        </View>
+          <View style={styles.separator} />
+        </BottomSheetScrollView>
       </BottomSheet>
     </>
   );
@@ -91,6 +135,17 @@ const App = () => {
   const colorScheme = useColorScheme();
   const theme = useMemo(() => (colorScheme === 'dark' ? darkTheme : lightTheme), [colorScheme]);
   const [starts, setStarts] = React.useState(0);
+
+  useEffect(() => {
+    const getToken = async () => {
+      const token = await remoteMessaging.getToken();
+      console.log('token', token);
+    };
+    void getToken();
+
+    const unsubscribe = setForegroundMessageHandler();
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     void (async () => await localStorage.setItem('colorScheme', colorScheme?.toString() ?? ''))();
@@ -106,12 +161,7 @@ const App = () => {
 
     void (async () => await localStorage.setItem('version', JSON.stringify(getVersion()) ?? ''))();
     void (async () => await localStorage.setItem('startAt', dayjs().valueOf().toString()))();
-    // void (async () => await localStorage.setItem('starts', (await localStorage.getItem('starts', '1')).toString()))();
   }, []);
-
-  // const RootScreenComponent = useMemo(({ starts }: { starts: number }) => {
-  //   return <RootScreen starts={starts} />;
-  // }, []);
 
   const RootScreenComponent = memo(() => <RootScreen starts={starts} />);
 
@@ -142,10 +192,18 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     backgroundColor: 'grey',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   contentContainer: {
-    flex: 1,
-    alignItems: 'center',
+    // flex: 1,
+    // alignItems: 'center',
+    marginHorizontal: 10,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#E4E4E4',
+    marginVertical: 10,
   },
 });
 
